@@ -1,0 +1,691 @@
+name: 🐳 WebDiário Base Images - Build and Push to DockerHub
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+    paths:
+      - 'webdiario-base-images/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'webdiario-base-images/**'
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_NAMESPACE: webdiario
+  GRAFANA_VERSION: 10.2.0
+  AWS_CLI_VERSION: 2.13.0
+  GCLOUD_VERSION: 450.0.0
+  JAVA_VERSION: 21
+  NODE_VERSION: 22.17.1
+
+jobs:
+  # Build and push base images (Ubuntu)
+  build-base-ubuntu:
+    name: 🐧 Build Base Ubuntu
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/Dockerfile'))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-base
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GRAFANA_VERSION=${{ env.GRAFANA_VERSION }}
+
+  build-base-alpine:
+    name: 🏔️ Build Base Alpine
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/alpine/Dockerfile'))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-base-alpine
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/alpine
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GRAFANA_VERSION=${{ env.GRAFANA_VERSION }}
+
+  # Build and push AWS images (Ubuntu)
+  build-aws-ubuntu:
+    name: ☁️ Build AWS Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-base-ubuntu
+    if: always() && (needs.build-base-ubuntu.result == 'success' || needs.build-base-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/aws/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-aws
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/aws
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            AWS_CLI_VERSION=${{ env.AWS_CLI_VERSION }}
+
+  build-aws-java-ubuntu:
+    name: ☁️☕ Build AWS Java Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-aws-ubuntu
+    if: always() && (needs.build-aws-ubuntu.result == 'success' || needs.build-aws-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/aws/java/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-aws-java
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/aws/java
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-aws-java-21-ubuntu:
+    name: ☁️☕21 Build AWS Java 21 Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-aws-java-ubuntu
+    if: always() && (needs.build-aws-java-ubuntu.result == 'success' || needs.build-aws-java-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/aws/java/21/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-aws-java-21
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/aws/java/21
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            JAVA_VERSION=${{ env.JAVA_VERSION }}
+
+  build-aws-node-ubuntu:
+    name: ☁️📦 Build AWS Node Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-aws-ubuntu
+    if: always() && (needs.build-aws-ubuntu.result == 'success' || needs.build-aws-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/aws/node/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-aws-node
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/aws/node
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-aws-node-22-ubuntu:
+    name: ☁️📦22 Build AWS Node 22 Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-aws-node-ubuntu
+    if: always() && (needs.build-aws-node-ubuntu.result == 'success' || needs.build-aws-node-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/aws/node/22.17.1/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-aws-node-22.17.1
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/aws/node/22.17.1
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+
+  # Build and push GCP images (Ubuntu)
+  build-gcp-ubuntu:
+    name: 🌐 Build GCP Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-base-ubuntu
+    if: always() && (needs.build-base-ubuntu.result == 'success' || needs.build-base-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/gcp/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-gcp
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/gcp
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GCLOUD_VERSION=${{ env.GCLOUD_VERSION }}
+
+  build-gcp-java-ubuntu:
+    name: 🌐☕ Build GCP Java Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-gcp-ubuntu
+    if: always() && (needs.build-gcp-ubuntu.result == 'success' || needs.build-gcp-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/gcp/java/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-gcp-java
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/gcp/java
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-gcp-java-21-ubuntu:
+    name: 🌐☕21 Build GCP Java 21 Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-gcp-java-ubuntu
+    if: always() && (needs.build-gcp-java-ubuntu.result == 'success' || needs.build-gcp-java-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/gcp/java/21/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-gcp-java-21
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/gcp/java/21
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            JAVA_VERSION=${{ env.JAVA_VERSION }}
+
+  build-gcp-node-ubuntu:
+    name: 🌐📦 Build GCP Node Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-gcp-ubuntu
+    if: always() && (needs.build-gcp-ubuntu.result == 'success' || needs.build-gcp-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/gcp/node/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-gcp-node
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/gcp/node
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-gcp-node-22-ubuntu:
+    name: 🌐📦22 Build GCP Node 22 Ubuntu
+    runs-on: ubuntu-latest
+    needs: build-gcp-node-ubuntu
+    if: always() && (needs.build-gcp-node-ubuntu.result == 'success' || needs.build-gcp-node-ubuntu.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/gcp/node/22.17.1/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-gcp-node-22.17.1
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/gcp/node/22.17.1
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+
+  # Build and push Alpine images
+  build-aws-alpine:
+    name: ☁️🏔️ Build AWS Alpine
+    runs-on: ubuntu-latest
+    needs: build-base-alpine
+    if: always() && (needs.build-base-alpine.result == 'success' || needs.build-base-alpine.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/alpine/aws/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-aws-alpine
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/alpine/aws
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            AWS_CLI_VERSION=${{ env.AWS_CLI_VERSION }}
+
+  build-gcp-alpine:
+    name: 🌐🏔️ Build GCP Alpine
+    runs-on: ubuntu-latest
+    needs: build-base-alpine
+    if: always() && (needs.build-base-alpine.result == 'success' || needs.build-base-alpine.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'webdiario-base-images/alpine/gcp/')))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-gcp-alpine
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./webdiario-base-images/alpine/gcp
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            GCLOUD_VERSION=${{ env.GCLOUD_VERSION }}
+
+  # Security scanning
+  security-scan:
+    name: 🔍 Security Scan
+    runs-on: ubuntu-latest
+    needs: [build-base-ubuntu, build-base-alpine, build-aws-java-21-ubuntu, build-gcp-java-21-ubuntu, build-aws-node-22-ubuntu, build-gcp-node-22-ubuntu, build-aws-alpine, build-gcp-alpine]
+    if: always() && github.event_name == 'push'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🔍 Run Trivy vulnerability scanner on base images
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/webdiario-base:latest'
+          format: 'sarif'
+          output: 'trivy-base-results.sarif'
+
+      - name: 📤 Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-base-results.sarif'
+
+  # Notification
+  notify:
+    name: 📢 Notify Build Status
+    runs-on: ubuntu-latest
+    needs: [build-base-ubuntu, build-base-alpine, build-aws-java-21-ubuntu, build-gcp-java-21-ubuntu, build-aws-node-22-ubuntu, build-gcp-node-22-ubuntu, build-aws-alpine, build-gcp-alpine, security-scan]
+    if: always() && github.event_name == 'push'
+    
+    steps:
+      - name: 📢 Notify on success
+        if: ${{ needs.build-base-ubuntu.result == 'success' && needs.build-base-alpine.result == 'success' && needs.build-aws-java-21-ubuntu.result == 'success' && needs.build-gcp-java-21-ubuntu.result == 'success' && needs.build-aws-node-22-ubuntu.result == 'success' && needs.build-gcp-node-22-ubuntu.result == 'success' && needs.build-aws-alpine.result == 'success' && needs.build-gcp-alpine.result == 'success' }}
+        run: |
+          echo "✅ All WebDiário base images built and pushed successfully!"
+          echo "🐳 Images available at: https://hub.docker.com/u/${{ env.DOCKER_NAMESPACE }}"
+          echo "📋 Available images:"
+          echo "  - webdiario-base (Ubuntu)"
+          echo "  - webdiario-base-alpine (Alpine)"
+          echo "  - webdiario-aws-java-21 (Ubuntu)"
+          echo "  - webdiario-gcp-java-21 (Ubuntu)"
+          echo "  - webdiario-aws-node-22.17.1 (Ubuntu)"
+          echo "  - webdiario-gcp-node-22.17.1 (Ubuntu)"
+          echo "  - webdiario-aws-alpine (Alpine)"
+          echo "  - webdiario-gcp-alpine (Alpine)"
+
+      - name: 📢 Notify on failure
+        if: ${{ needs.build-base-ubuntu.result == 'failure' || needs.build-base-alpine.result == 'failure' || needs.build-aws-java-21-ubuntu.result == 'failure' || needs.build-gcp-java-21-ubuntu.result == 'failure' || needs.build-aws-node-22-ubuntu.result == 'failure' || needs.build-gcp-node-22-ubuntu.result == 'failure' || needs.build-aws-alpine.result == 'failure' || needs.build-gcp-alpine.result == 'failure' }}
+        run: |
+          echo "❌ Some WebDiário base images failed to build or push!"
+          echo "Check the logs for more details."

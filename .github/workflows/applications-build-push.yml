@@ -1,0 +1,501 @@
+name: 🚀 WebDiário Applications - Build and Push to DockerHub
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+    paths:
+      - 'api-webdiario/**'
+      - 'api-webdiario-security/**'
+      - 'api-webdiario-event-hub/**'
+      - 'api-webdiario-subscription/**'
+      - 'app-webdiario-financial/**'
+      - 'app-webdiario-security/**'
+      - 'app-webdiario-site/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'api-webdiario/**'
+      - 'api-webdiario-security/**'
+      - 'api-webdiario-event-hub/**'
+      - 'api-webdiario-subscription/**'
+      - 'app-webdiario-financial/**'
+      - 'app-webdiario-security/**'
+      - 'app-webdiario-site/**'
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_NAMESPACE: webdiario
+  JAVA_VERSION: 21
+  NODE_VERSION: 18
+
+jobs:
+  # Build and push API services
+  build-api-webdiario:
+    name: 🚀 Build API WebDiário
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'api-webdiario/'))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: 🔧 Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: 🏗️ Build Maven project
+        run: |
+          cd api-webdiario
+          mvn clean package -DskipTests
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/api-webdiario
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api-webdiario
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-api-security:
+    name: 🔐 Build API Security
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'api-webdiario-security/'))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: 🔧 Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: 🏗️ Build Maven project
+        run: |
+          cd api-webdiario-security
+          mvn clean package -DskipTests
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/api-webdiario-security
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api-webdiario-security
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-api-event-hub:
+    name: 📡 Build API Event Hub
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'api-webdiario-event-hub/'))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: 🔧 Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: 🏗️ Build Maven project
+        run: |
+          cd api-webdiario-event-hub
+          mvn clean package -DskipTests
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/api-webdiario-event-hub
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api-webdiario-event-hub
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-api-subscription:
+    name: 💳 Build API Subscription
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'api-webdiario-subscription/'))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: 🔧 Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: 🏗️ Build Maven project
+        run: |
+          cd api-webdiario-subscription
+          mvn clean package -DskipTests
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/api-webdiario-subscription
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api-webdiario-subscription
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Build and push Frontend applications
+  build-app-financial:
+    name: 💰 Build App Financial
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'app-webdiario-financial/'))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: app-webdiario-financial/package-lock.json
+
+      - name: 📦 Install dependencies
+        run: |
+          cd app-webdiario-financial
+          npm ci
+
+      - name: 🏗️ Build application
+        run: |
+          cd app-webdiario-financial
+          npm run build
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/app-webdiario-financial
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app-webdiario-financial
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-app-security:
+    name: 🔐 Build App Security
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'app-webdiario-security/'))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: app-webdiario-security/package-lock.json
+
+      - name: 📦 Install dependencies
+        run: |
+          cd app-webdiario-security
+          npm ci
+
+      - name: 🏗️ Build application
+        run: |
+          cd app-webdiario-security
+          npm run build
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/app-webdiario-security
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app-webdiario-security
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-app-site:
+    name: 🌐 Build App Site
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.changed_files, 'app-webdiario-site/'))
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: app-webdiario-site/package-lock.json
+
+      - name: 📦 Install dependencies
+        run: |
+          cd app-webdiario-site
+          npm ci
+
+      - name: 🏗️ Build application
+        run: |
+          cd app-webdiario-site
+          npm run build
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/app-webdiario-site
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app-webdiario-site
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Security scanning
+  security-scan:
+    name: 🔍 Security Scan
+    runs-on: ubuntu-latest
+    needs: [build-api-webdiario, build-api-security, build-api-event-hub, build-api-subscription, build-app-financial, build-app-security, build-app-site]
+    if: always() && github.event_name == 'push'
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🔍 Run Trivy vulnerability scanner on applications
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/api-webdiario:latest'
+          format: 'sarif'
+          output: 'trivy-apps-results.sarif'
+
+      - name: 📤 Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-apps-results.sarif'
+
+  # Notification
+  notify:
+    name: 📢 Notify Build Status
+    runs-on: ubuntu-latest
+    needs: [build-api-webdiario, build-api-security, build-api-event-hub, build-api-subscription, build-app-financial, build-app-security, build-app-site, security-scan]
+    if: always() && github.event_name == 'push'
+    
+    steps:
+      - name: 📢 Notify on success
+        if: ${{ needs.build-api-webdiario.result == 'success' && needs.build-api-security.result == 'success' && needs.build-api-event-hub.result == 'success' && needs.build-api-subscription.result == 'success' && needs.build-app-financial.result == 'success' && needs.build-app-security.result == 'success' && needs.build-app-site.result == 'success' }}
+        run: |
+          echo "✅ All WebDiário applications built and pushed successfully!"
+          echo "🐳 Images available at: https://hub.docker.com/u/${{ env.DOCKER_NAMESPACE }}"
+          echo "📋 Available applications:"
+          echo "  - api-webdiario (Main API)"
+          echo "  - api-webdiario-security (Security API)"
+          echo "  - api-webdiario-event-hub (Event Hub API)"
+          echo "  - api-webdiario-subscription (Subscription API)"
+          echo "  - app-webdiario-financial (Financial Frontend)"
+          echo "  - app-webdiario-security (Security Frontend)"
+          echo "  - app-webdiario-site (Site Frontend)"
+
+      - name: 📢 Notify on failure
+        if: ${{ needs.build-api-webdiario.result == 'failure' || needs.build-api-security.result == 'failure' || needs.build-api-event-hub.result == 'failure' || needs.build-api-subscription.result == 'failure' || needs.build-app-financial.result == 'failure' || needs.build-app-security.result == 'failure' || needs.build-app-site.result == 'failure' }}
+        run: |
+          echo "❌ Some WebDiário applications failed to build or push!"
+          echo "Check the logs for more details."
