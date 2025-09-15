@@ -1,0 +1,52 @@
+# 🟢 WebDiário AWS Node Base Image Alpine
+# Extends AWS Alpine base image with Node.js installer dependencies
+
+FROM webdiario-aws-alpine:latest
+
+# Switch to root for installation
+USER root
+
+# Install Node.js and build tools
+RUN apk add --no-cache \
+    nodejs \
+    npm \
+    python3 \
+    make \
+    g++ \
+    git
+
+# Install Node Version Manager (NVM)
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+# Set NVM environment variables
+ENV NVM_DIR=/root/.nvm
+ENV NODE_VERSION=18.17.0
+
+# Install Node.js using NVM
+RUN . "$NVM_DIR/nvm.sh" && nvm install $NODE_VERSION && nvm use $NODE_VERSION
+
+# Add Node.js to PATH
+ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+
+# Install global npm packages
+RUN npm install -g \
+    npm@latest \
+    yarn \
+    pnpm \
+    typescript \
+    @angular/cli \
+    @vue/cli \
+    create-react-app
+
+# Switch back to webdiario user
+USER webdiario
+
+# Verify Node.js installation
+RUN node --version && npm --version
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node --version || exit 1
+
+# Default command
+CMD ["/bin/bash"]
