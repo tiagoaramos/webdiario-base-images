@@ -1,0 +1,140 @@
+# 📚 JMX Prometheus Configuration for WebDiário Platform
+# Configuration file for JMX Exporter to expose Java application metrics
+
+# Global configuration
+startDelaySeconds: 0
+ssl: false
+lowercaseOutputName: false
+lowercaseOutputLabelNames: false
+
+# Rules for collecting metrics
+rules:
+  # JVM Memory metrics
+  - pattern: 'java.lang<type=Memory><>HeapMemoryUsage'
+    name: jvm_memory_heap_usage
+    type: GAUGE
+    help: "JVM heap memory usage"
+    labels:
+      area: "heap"
+
+  - pattern: 'java.lang<type=Memory><>NonHeapMemoryUsage'
+    name: jvm_memory_nonheap_usage
+    type: GAUGE
+    help: "JVM non-heap memory usage"
+    labels:
+      area: "nonheap"
+
+  # JVM Garbage Collection metrics
+  - pattern: 'java.lang<type=GarbageCollector,name=([^>]+)><>CollectionCount'
+    name: jvm_gc_collection_count
+    type: COUNTER
+    help: "JVM garbage collection count"
+    labels:
+      gc: "$1"
+
+  - pattern: 'java.lang<type=GarbageCollector,name=([^>]+)><>CollectionTime'
+    name: jvm_gc_collection_time
+    type: COUNTER
+    help: "JVM garbage collection time in milliseconds"
+    labels:
+      gc: "$1"
+
+  # JVM Thread metrics
+  - pattern: 'java.lang<type=Threading><>ThreadCount'
+    name: jvm_threads_current
+    type: GAUGE
+    help: "Current number of threads"
+
+  - pattern: 'java.lang<type=Threading><>DaemonThreadCount'
+    name: jvm_threads_daemon
+    type: GAUGE
+    help: "Current number of daemon threads"
+
+  - pattern: 'java.lang<type=Threading><>PeakThreadCount'
+    name: jvm_threads_peak
+    type: GAUGE
+    help: "Peak number of threads"
+
+  # JVM Class Loading metrics
+  - pattern: 'java.lang<type=ClassLoading><>LoadedClassCount'
+    name: jvm_classes_loaded
+    type: GAUGE
+    help: "Number of classes currently loaded"
+
+  - pattern: 'java.lang<type=ClassLoading><>TotalLoadedClassCount'
+    name: jvm_classes_total_loaded
+    type: COUNTER
+    help: "Total number of classes loaded"
+
+  - pattern: 'java.lang<type=ClassLoading><>UnloadedClassCount'
+    name: jvm_classes_unloaded
+    type: COUNTER
+    help: "Total number of classes unloaded"
+
+  # JVM Runtime metrics
+  - pattern: 'java.lang<type=Runtime><>Uptime'
+    name: jvm_uptime_seconds
+    type: GAUGE
+    help: "JVM uptime in seconds"
+
+  - pattern: 'java.lang<type=Runtime><>StartTime'
+    name: jvm_start_time_seconds
+    type: GAUGE
+    help: "JVM start time in seconds since epoch"
+
+  # Spring Boot Actuator metrics (if available)
+  - pattern: 'org.springframework.boot<type=Endpoint,name=Health><>Status'
+    name: spring_boot_health_status
+    type: GAUGE
+    help: "Spring Boot health status"
+
+  # Tomcat metrics (if using embedded Tomcat)
+  - pattern: 'Catalina<type=Manager,host=([^>]+),context=([^>]+)><>activeSessions'
+    name: tomcat_sessions_active
+    type: GAUGE
+    help: "Active Tomcat sessions"
+    labels:
+      host: "$1"
+      context: "$2"
+
+  - pattern: 'Catalina<type=ThreadPool,name=([^>]+)><>currentThreadCount'
+    name: tomcat_threads_current
+    type: GAUGE
+    help: "Current Tomcat thread count"
+    labels:
+      name: "$1"
+
+  - pattern: 'Catalina<type=ThreadPool,name=([^>]+)><>maxThreads'
+    name: tomcat_threads_max
+    type: GAUGE
+    help: "Maximum Tomcat thread count"
+    labels:
+      name: "$1"
+
+  # Database connection pool metrics (HikariCP)
+  - pattern: 'com.zaxxer.hikari<type=HikariPool,name=([^>]+)><>ActiveConnections'
+    name: hikaricp_connections_active
+    type: GAUGE
+    help: "Active HikariCP connections"
+    labels:
+      pool: "$1"
+
+  - pattern: 'com.zaxxer.hikari<type=HikariPool,name=([^>]+)><>IdleConnections'
+    name: hikaricp_connections_idle
+    type: GAUGE
+    help: "Idle HikariCP connections"
+    labels:
+      pool: "$1"
+
+  - pattern: 'com.zaxxer.hikari<type=HikariPool,name=([^>]+)><>TotalConnections'
+    name: hikaricp_connections_total
+    type: GAUGE
+    help: "Total HikariCP connections"
+    labels:
+      pool: "$1"
+
+  # Custom application metrics (if any)
+  - pattern: '.*'
+    name: jmx_metric
+    type: UNTYPED
+    help: "JMX metric"

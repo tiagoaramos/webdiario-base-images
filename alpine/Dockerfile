@@ -1,51 +1,31 @@
-# 📚 WebDiário Base Image Alpine - Grafana Dependencies
+# 📚 WebDiário Alpine Base Image
 # This is the parent Alpine image for all WebDiário base images
-# Contains Grafana dependencies and common utilities
+# Contains common utilities and dependencies
+# Tag: webdiario/alpine
 
 FROM alpine:3.19
 
 # Set environment variables
 ENV TZ=America/Sao_Paulo
 
-# Install basic dependencies and Grafana dependencies
+# Install basic dependencies
 RUN apk add --no-cache \
     curl \
     wget \
     bash \
     tzdata \
     ca-certificates \
-    fontconfig \
-    freetype \
-    libx11 \
-    libxext \
-    libxrender \
-    libxtst \
-    libxi \
-    libxrandr \
-    libxss \
-    libgconf \
-    alsa-lib \
-    atk \
-    cairo-gobject \
-    libdrm \
-    gtk+3.0 \
-    gdk-pixbuf \
-    libxcomposite \
-    libxcursor \
-    libxdamage \
-    libxfixes \
-    libxinerama \
-    libxrandr \
-    libxss \
-    libxtst \
-    musl \
-    libc6-compat
+    jq \
+    netcat-openbsd
 
 # Create webdiario user
 RUN adduser -D -s /bin/bash webdiario
 
 # Set working directory
 WORKDIR /app
+
+# Set permissions for app directory
+RUN chown -R webdiario:webdiario /app
 
 # Set default user
 USER webdiario
